@@ -1,0 +1,405 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Clone</title>
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            overflow-x: hidden;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 240px;
+            background-color: #000000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar .logo img {
+            width: 130px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar ul li {
+            margin: 15px 0;
+        }
+        .sidebar ul li a {
+            color: #b3b3b3;
+            text-decoration: none;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        .sidebar ul li a:hover, .sidebar ul li a.active {
+            color: #ffffff;
+        }
+        .sidebar ul li a i {
+            margin-right: 10px;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+            min-height: calc(100vh - 90px);
+        }
+        .player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 90px;
+            background-color: #181818;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .track-info img {
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+        }
+        .track-info {
+            display: flex;
+            align-items: center;
+            width: 30%;
+        }
+        .controls {
+            width: 40%;
+            text-align: center;
+        }
+        .controls button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 20px;
+            margin: 0 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 5px;
+            background: #535353;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .progress {
+            height: 100%;
+            background: #1db954;
+            width: 0%;
+        }
+        .card {
+            background-color: #181818;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        .card:hover {
+            background-color: #282828;
+        }
+        .card-img-top {
+            border-radius: 8px;
+        }
+        .search-bar {
+            background: #242424;
+            border-radius: 20px;
+            padding: 10px;
+        }
+        #searchInput {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            width: 100%;
+        }
+        #searchInput:focus {
+            outline: none;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+                padding: 10px;
+            }
+            .sidebar .logo img {
+                width: 40px;
+            }
+            .sidebar ul li a span {
+                display: none;
+            }
+            .main-content {
+                margin-left: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2018/11/Spotify_Logo_CMYK_White.png" alt="Spotify Logo">
+        </div>
+        <ul>
+            <li><a href="#" class="nav-link active" data-page="home"><i class="fas fa-home"></i><span>Home</span></a></li>
+            <li><a href="#" class="nav-link" data-page="search"><i class="fas fa-search"></i><span>Search</span></a></li>
+            <li><a href="#" class="nav-link" data-page="library"><i class="fas fa-book"></i><span>Your Library</span></a></li>
+            <li><a href="#" class="nav-link" onclick="createPlaylist()"><i class="fas fa-plus-square"></i><span>Create Playlist</span></a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Home Page -->
+        <div id="home" class="page active">
+            <h2>Featured Playlists</h2>
+            <div class="row row-cols-1 row-cols-md-4 g-4">
+                <div class="col">
+                    <div class="card">
+                        <img src="https://via.placeholder.com/150" class="card-img-top" alt="Playlist">
+                        <div class="card-body">
+                            <h5 class="card-title">Today's Top Hits</h5>
+                            <p class="card-text">The hottest tracks right now.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card">
+                        <img src="https://via.placeholder.com/150" class="card-img-top" alt="Playlist">
+                        <div class="card-body">
+                            <h5 class="card-title">Chill Hits</h5>
+                            <p class="card-text">Relax with smooth vibes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <h2 class="mt-4">Recently Played</h2>
+            <div class="row row-cols-1 row-cols-md-4 g-4">
+                <div class="col">
+                    <div class="card">
+                        <img src="https://via.placeholder.com/150" class="card-img-top" alt="Track">
+                        <div class="card-body">
+                            <h5 class="card-title">Song Title</h5>
+                            <p class="card-text">Artist Name</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Page -->
+        <div id="search" class="page" style="display: none;">
+            <div class="search-bar mb-4">
+                <input type="text" id="searchInput" placeholder="Search for songs, artists, or albums">
+            </div>
+            <div id="searchResults" class="row row-cols-1 row-cols-md-4 g-4"></div>
+        </div>
+
+        <!-- Library Page -->
+        <div id="library" class="page" style="display: none;">
+            <h2>Your Playlists</h2>
+            <div id="playlists" class="row row-cols-1 row-cols-md-4 g-4"></div>
+            <h2 class="mt-4">Liked Songs</h2>
+            <div id="likedSongs" class="row row-cols-1 row-cols-md-4 g-4">
+                <div class="col">
+                    <div class="card">
+                        <img src="https://via.placeholder.com/150" class="card-img-top" alt="Song">
+                        <div class="card-body">
+                            <h5 class="card-title">Liked Song</h5>
+                            <p class="card-text">Artist Name</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Music Player -->
+    <div class="player">
+        <div class="track-info">
+            <img src="https://via.placeholder.com/50" alt="Track">
+            <div>
+                <div>Song Title</div>
+                <small>Artist Name</small>
+            </div>
+        </div>
+        <div class="controls">
+            <button onclick="previousTrack()"><i class="fas fa-backward"></i></button>
+            <button onclick="togglePlay()"><i class="fas fa-play" id="playPauseIcon"></i></button>
+            <button onclick="nextTrack()"><i class="fas fa-forward"></i></button>
+            <div class="progress-bar mt-2">
+                <div class="progress"></div>
+            </div>
+        </div>
+        <div class="volume">
+            <i class="fas fa-volume-up"></i>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sample song data
+        const songs = [
+            { title: "Song One", artist: "Artist A", image: "https://via.placeholder.com/150" },
+            { title: "Song Two", artist: "Artist B", image: "https://via.placeholder.com/150" },
+            { title: "Song Three", artist: "Artist C", image: "https://via.placeholder.com/150" }
+        ];
+
+        let playlists = [];
+        let isPlaying = false;
+        let progressInterval;
+
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.getAttribute('data-page');
+                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+                document.getElementById(page).style.display = 'block';
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const results = songs.filter(song => 
+                song.title.toLowerCase().includes(query) || 
+                song.artist.toLowerCase().includes(query)
+            );
+            const resultsContainer = document.getElementById('searchResults');
+            resultsContainer.innerHTML = '';
+            results.forEach(song => {
+                const card = document.createElement('div');
+                card.className = 'col';
+                card.innerHTML = `
+                    <div class="card">
+                        <img src="${song.image}" class="card-img-top" alt="${song.title}">
+                        <div class="card-body">
+                            <h5 class="card-title">${song.title}</h5>
+                            <p class="card-text">${song.artist}</p>
+                        </div>
+                    </div>
+                `;
+                resultsContainer.appendChild(card);
+            });
+        });
+
+        // Create playlist
+        function createPlaylist() {
+            const name = prompt('Enter playlist name:');
+            if (name) {
+                playlists.push({ name, songs: [] });
+                updatePlaylists();
+            }
+        }
+
+        // Update playlists display
+        function updatePlaylists() {
+            const playlistsContainer = document.getElementById('playlists');
+            playlistsContainer.innerHTML = '';
+            playlists.forEach(playlist => {
+                const card = document.createElement('div');
+                card.className = 'col';
+                card.innerHTML = `
+                    <div class="card">
+                        <img src="https://via.placeholder.com/150" class="card-img-top" alt="${playlist.name}">
+                        <div class="card-body">
+                            <h5 class="card-title">${playlist.name}</h5>
+                            <p class="card-text">${playlist.songs.length} songs</p>
+                        </div>
+                    </div>
+                `;
+                playlistsContainer.appendChild(card);
+            });
+        }
+
+        // Player controls
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const icon = document.getElementById('playPauseIcon');
+            icon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+            if (isPlaying) {
+                startProgress();
+            } else {
+                clearInterval(progressInterval);
+            }
+        }
+
+        function startProgress() {
+            const progress = document.querySelector('.progress');
+            let width = 0;
+            progressInterval = setInterval(() => {
+                if (width >= 100) {
+                    clearInterval(progressInterval);
+                    isPlaying = false;
+                    document.getElementById('playPauseIcon').className = 'fas fa-play';
+                    width = 0;
+                } else {
+                    width += 0.5;
+                }
+                progress.style.width = `${width}%`;
+            }, 100);
+        }
+
+        function nextTrack() {
+            clearInterval(progressInterval);
+            document.querySelector('.progress').style.width = '0%';
+            if (isPlaying) startProgress();
+        }
+
+        function previousTrack() {
+            clearInterval(progressInterval);
+            document.querySelector('.progress').style.width = '0%';
+            if (isPlaying) startProgress();
+        }
+    </script>
+</body>
+</html>
